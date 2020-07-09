@@ -42,31 +42,17 @@ import org.rstudio.studio.client.application.Desktop;
 import org.rstudio.studio.client.application.ui.RStudioThemes;
 import org.rstudio.studio.client.common.satellite.Satellite;
 import org.rstudio.studio.client.common.satellite.SatelliteManager;
-import org.rstudio.studio.client.workbench.views.source.SourceColumn;
-import org.rstudio.studio.client.workbench.views.source.SourceColumnManager;
 
 public class AppCommand implements Command, ClickHandler, ImageResourceProvider
 {
    private class CommandToolbarButton extends ToolbarButton implements
          EnabledChangedHandler, VisibleChangedHandler
-   {
+   { 
       public CommandToolbarButton(String buttonLabel, String buttonTitle,
             ImageResourceProvider imageResourceProvider, AppCommand command,
             boolean synced)
       {
          super(buttonLabel, buttonTitle, imageResourceProvider, command);
-         command_ = command;
-         synced_ = synced;
-      }
-
-      public CommandToolbarButton(String buttonLabel,
-                                  String buttonTitle,
-                                  ImageResourceProvider imageResourceProvider,
-                                  ClickHandler clickHandler,
-                                  AppCommand command,
-                                  boolean synced)
-      {
-         super(buttonLabel, buttonTitle, imageResourceProvider, clickHandler);
          command_ = command;
          synced_ = synced;
       }
@@ -81,7 +67,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
             handlerReg_ = command_.addEnabledChangedHandler(this);
             handlerReg2_ = command_.addVisibleChangedHandler(this);
          }
-
+         
          parentToolbar_ = getParentToolbar();
 
          super.onAttach();
@@ -114,73 +100,13 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
          parentToolbar_.invalidateSeparators();
       }
 
-      protected final AppCommand command_;
+      private final AppCommand command_;
       private boolean synced_ = true;
-      protected HandlerRegistration handlerReg_;
-      protected HandlerRegistration handlerReg2_;
-      protected Toolbar parentToolbar_;
+      private HandlerRegistration handlerReg_;
+      private HandlerRegistration handlerReg2_;
+      private Toolbar parentToolbar_;
    }
-
-   private class CommandSourceColumnToolbarButton extends CommandToolbarButton
-   {
-      public CommandSourceColumnToolbarButton(String buttonLabel,
-                                              String buttonTitle,
-                                              ImageResourceProvider imageResourceProvider,
-                                              ClickHandler clickHandler,
-                                              AppCommand command,
-                                              SourceColumn column)     {
-         super(buttonLabel, buttonTitle, imageResourceProvider, clickHandler, command, false);
-         column_ = column;
-      }
-
-      @Override
-      protected void onAttach()
-      {
-         super.onAttach();
-
-         handlerReg_ = command_.addEnabledChangedHandler(this);
-         handlerReg2_ = command_.addVisibleChangedHandler(this);
-
-         if (isVisible())
-            setEnabled(true);
-      }
-
-      @Override
-      protected void onDetach()
-      {
-         super.onDetach();
-         handlerReg_.removeHandler();
-         handlerReg2_.removeHandler();
-      }
-
-      @Override
-      public void onEnabledChanged(EnabledChangedEvent event)
-      {
-         if (StringUtil.equals(column_.getName(), event.getColumnName()))
-            setEnabled(event.getButtonEnabled());
-      }
-
-      @Override
-      public void onVisibleChanged(VisibleChangedEvent event)
-      {
-         if (StringUtil.equals(column_.getName(), event.getColumnName()))
-            setVisible(event.getButtonVisible());
-      }
-
-      private final SourceColumn column_;
-   }
-
-   private static class CommandSourceColumnMenuItem extends AppMenuItem
-   {
-
-      public CommandSourceColumnMenuItem(AppCommand command,
-                                         SourceColumn column,
-                                         Command wrapper)
-      {
-         super(command, false, wrapper);
-      }
-   }
-
+   
    public AppCommand()
    {
       if (Desktop.hasDesktopFrame())
@@ -195,13 +121,13 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       executedFromShortcut_ = true;
       doExecute();
    }
-
+   
    public void execute()
    {
       executedFromShortcut_ = false;
       doExecute();
    }
-
+   
    private void doExecute()
    {
       assert enabled_ : "AppCommand executed when it was not enabled";
@@ -210,13 +136,13 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       assert visible_ : "AppCommand executed when it was not visible";
       if (!visible_)
          return;
-
+      
       // if this window is a satellite but the command only wants to be handled
       // in the a different window, execute the command there instead
       Satellite satellite = RStudioGinjector.INSTANCE.getSatellite();
       if (getWindowMode() != WINDOW_MODE_ANY &&
-          Satellite.isCurrentWindowSatellite() &&
-          satellite.getSatelliteName() != getWindowMode())
+          Satellite.isCurrentWindowSatellite() && 
+          satellite.getSatelliteName() != getWindowMode()) 
       {
          if (getWindowMode() == WINDOW_MODE_MAIN)
          {
@@ -231,7 +157,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
             // (this is of course only possible in desktop mode)
             Desktop.getFrame().bringMainFrameBehindActive();
          }
-
+         
          // satellites don't fire commands peer-to-peer--route it to the main
          // window for processing
          SatelliteManager mgr = RStudioGinjector.INSTANCE.getSatelliteManager();
@@ -241,10 +167,10 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
 
       if (enableNoHandlerAssertions_)
       {
-         assert handlers_.getHandlerCount(CommandEvent.TYPE) > 0
+         assert handlers_.getHandlerCount(CommandEvent.TYPE) > 0 
                   : "AppCommand executed but nobody was listening: " + getId();
       }
-
+      
       CommandEvent event = new CommandEvent(this);
       RStudioGinjector.INSTANCE.getEventBus().fireEvent(event);
       handlers_.fireEvent(event);
@@ -259,7 +185,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
     * Determines whether there are any handlers established that will execute
     * when this command runs. This is useful for determining if the command
     * will do anything when executed.
-    *
+    * 
     * @return Whether this command has handlers.
     */
    public boolean hasCommandHandlers()
@@ -276,20 +202,6 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       }
    }
 
-   public void setEnabled(boolean enabled, String sourceColumnName)
-   {
-      if (enabled != enabled_)
-      {
-         enabled_ = enabled;
-         handlers_.fireEvent(new EnabledChangedEvent(this, sourceColumnName));
-      }
-   }
-
-   public void setButtonEnabled(boolean buttonEnabled, String sourceColumnName)
-   {
-      handlers_.fireEvent(new EnabledChangedEvent(this, sourceColumnName, buttonEnabled));
-   }
-
    public boolean isVisible()
    {
       return visible_;
@@ -303,21 +215,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
          handlers_.fireEvent(new VisibleChangedEvent(this));
       }
    }
-
-   public void setVisible(boolean visible, String sourceColumnName)
-   {
-      if (!removed_ && visible != visible_)
-      {
-         visible_ = visible;
-         handlers_.fireEvent(new VisibleChangedEvent(this, sourceColumnName));
-      }
-   }
-
-   public void setButtonVisible(boolean buttonVisible, String sourceColumnName)
-   {
-      handlers_.fireEvent(new VisibleChangedEvent(this, sourceColumnName, buttonVisible));
-   }
-
+   
    /**
     * Restores a command which was formerly removed. The command must still be made
     * visible and enabled in order to work.
@@ -349,7 +247,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       if (!isCheckable())
          return;
-
+      
       checked_ = checked;
       if (Desktop.hasDesktopFrame())
          DesktopMenuCallback.setCommandChecked(id_, checked_);
@@ -381,34 +279,34 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       return windowMode_;
    }
-
+   
    public void setWindowMode(String mode)
    {
       windowMode_ = mode;
    }
-
+   
    public boolean isRebindable()
    {
       return rebindable_;
    }
-
+   
    public void setRebindable(boolean rebindable)
    {
       rebindable_ = rebindable;
    }
-
+   
    public enum Context
    {
       Workbench, Editor, R, Cpp, PackageDevelopment, RMarkdown,
       Markdown, Sweave, Help, VCS, Packrat, Renv, RPresentation,
       Addin, Viewer, History, Tutorial, Diagnostics, Import, Files;
-
+      
       @Override
       public String toString()
       {
          if (this == Cpp)
             return "C / C++";
-
+         
          return StringUtil.prettyCamel(super.toString());
       }
    }
@@ -417,7 +315,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       return context_;
    }
-
+   
    public void setContext(String context)
    {
       String lower = context.toLowerCase();
@@ -481,14 +379,14 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       String desc = StringUtil.notNull(getDesc());
       String shortcut = getShortcutPrettyHtml();
-      shortcut = StringUtil.isNullOrEmpty(shortcut)
-                 ? ""
+      shortcut = StringUtil.isNullOrEmpty(shortcut) 
+                 ? "" 
                  : "(" + DomUtils.htmlToText(shortcut) + ")";
 
       String result = (desc + " " + shortcut).trim();
       return result.length() == 0 ? null : result;
    }
-
+   
    public String getId()
    {
       return id_;
@@ -535,7 +433,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       }
       return getLabel();
    }
-
+   
    public void setMenuLabel(String menuLabel)
    {
       menuLabel_ = menuLabel;
@@ -548,28 +446,28 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       return menuImageResource(isCheckable(), isChecked(), imageResource_);
    }
-
+   
    public static ImageResource menuImageResource(boolean isCheckable, boolean isChecked, ImageResource defaultImage)
    {
       if (isCheckable)
       {
          if (RStudioThemes.isFlat() && RStudioThemes.isEditorDark()) {
-            return isChecked ?
+            return isChecked ? 
                new ImageResource2x(ThemeResources.INSTANCE.menuCheckInverted2x()) :
                null;
          }
          else {
-            return isChecked ?
+            return isChecked ? 
                new ImageResource2x(ThemeResources.INSTANCE.menuCheck2x()) :
                null;
          }
-      }
+      } 
       else
       {
          return defaultImage;
       }
    }
-
+   
    @Override
    public void addRenderedImage(Image image)
    {
@@ -579,12 +477,12 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       imageResource_ = imageResource;
    }
-
+   
    public void setRightImage(ImageResource image)
    {
       setRightImage(image, null);
    }
-
+   
    public void setRightImage(ImageResource image, String desc)
    {
       rightImage_ = image;
@@ -617,33 +515,14 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       return createToolbarButton(true);
    }
-
+   
    public ToolbarButton createToolbarButton(boolean synced)
    {
       CommandToolbarButton button = new CommandToolbarButton(getButtonLabel(),
                                                              getDesc(),
-                                                             this,
-                                                             this,
+                                                             this, 
+                                                             this, 
                                                              synced);
-      if (getTooltip() != null)
-         button.setTitle(getTooltip());
-      return button;
-   }
-
-   public ToolbarButton createToolbarButton(SourceColumn column)
-   {
-      CommandSourceColumnToolbarButton button =
-            new CommandSourceColumnToolbarButton(getButtonLabel(),
-                                                 getDesc(),
-                                                 this,
-                                                 event -> {
-                                                    SourceColumnManager mgr =
-                                                       RStudioGinjector.INSTANCE.getSourceColumnManager();
-                                                    mgr.setActive(column.getName());
-                                                    execute();
-                                                 },
-                                                 this,
-                                                 column);
       if (getTooltip() != null)
          button.setTitle(getTooltip());
       return button;
@@ -654,18 +533,6 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       return new AppMenuItem(this, mainMenu);
    }
 
-   public MenuItem createMenuItem(SourceColumn column)
-   {
-      return new CommandSourceColumnMenuItem(this,
-         column,
-         () -> {
-            SourceColumnManager mgr =
-               RStudioGinjector.INSTANCE.getSourceColumnManager();
-            mgr.setActive(column.getName());
-            execute();
-         });
-   }
-
    public String getMenuHTML(boolean mainMenu)
    {
       String label = getMenuLabel(false);
@@ -674,38 +541,38 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       return formatMenuLabel(
             getImageResource(), label, shortcut, rightImage_, rightImageDesc_);
    }
-
-   public static String formatMenuLabel(ImageResource icon,
+   
+   public static String formatMenuLabel(ImageResource icon, 
          String label,
          String shortcut)
    {
       return formatMenuLabel(icon, label, false, shortcut);
    }
-
-   public static String formatMenuLabelWithStyle(ImageResource icon,
+   
+   public static String formatMenuLabelWithStyle(ImageResource icon, 
                                                  String label,
                                                  String shortcut,
                                                  String styleName)
    {
-      return formatMenuLabel(icon,
-            label,
+      return formatMenuLabel(icon, 
+            label, 
             false,
-            shortcut,
-            null,
+            shortcut, 
+            null, 
             null,
             null,
             styleName);
    }
-
-   public static String formatMenuLabel(ImageResource icon,
+   
+   public static String formatMenuLabel(ImageResource icon, 
          String label,
          boolean html,
          String shortcut)
    {
       return formatMenuLabel(icon, label, html, shortcut, null, null);
    }
-
-   public static String formatMenuLabel(ImageResource icon,
+   
+   public static String formatMenuLabel(ImageResource icon, 
          String label,
          String shortcut,
          ImageResource rightImage,
@@ -714,44 +581,44 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       return formatMenuLabel(icon, label, false, shortcut, rightImage, rightImageDesc);
    }
 
-   public static String formatMenuLabel(ImageResource icon,
+   public static String formatMenuLabel(ImageResource icon, 
                                          String label,
                                          boolean html,
                                          String shortcut,
                                          ImageResource rightImage,
                                          String rightImageDesc)
    {
-      return formatMenuLabel(icon,
-                             label,
+      return formatMenuLabel(icon, 
+                             label, 
                              html,
-                             shortcut,
-                             null,
+                             shortcut, 
+                             null, 
                              rightImage,
                              rightImageDesc,
                              null);
    }
-
-   public static String formatMenuLabel(ImageResource icon,
+   
+   public static String formatMenuLabel(ImageResource icon, 
          String label,
-         String shortcut,
+         String shortcut, 
          Integer iconOffsetY)
    {
       return formatMenuLabel(icon, label, false, shortcut, iconOffsetY);
    }
-
-   public static String formatMenuLabel(ImageResource icon,
+   
+   public static String formatMenuLabel(ImageResource icon, 
                                         String label,
                                         boolean html,
-                                        String shortcut,
+                                        String shortcut, 
                                         Integer iconOffsetY)
    {
       return formatMenuLabel(icon, label, html, shortcut, iconOffsetY, null, null, null);
    }
-
-   public static String formatMenuLabel(ImageResource icon,
+   
+   public static String formatMenuLabel(ImageResource icon, 
                                          String label,
                                          boolean html,
-                                         String shortcut,
+                                         String shortcut, 
                                          Integer iconOffsetY,
                                          ImageResource rightImage,
                                          String rightImageDesc,
@@ -766,12 +633,12 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       {
          text.append("id=\"" + ElementIds.idFromLabel(label) + "_command\" ");
       }
-
+      
       if (styleName != null)
       {
          text.append("class='" + styleName + "' ");
       }
-
+      
       text.append("border=0 cellpadding=0 cellspacing=0 width='100%'><tr>");
 
       text.append("<td width=\"25\" style=\"vertical-align: top\">" +
@@ -805,17 +672,17 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
 
       return text.toString();
    }
-
+   
    public KeyboardShortcut getShortcut()
    {
       return shortcut_;
    }
-
+   
    public KeySequence getKeySequence()
    {
       if (shortcut_ == null)
          return new KeySequence();
-
+      
       return shortcut_.getKeySequence();
    }
 
@@ -823,7 +690,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       shortcut_ = shortcut;
    }
-
+   
    public String getShortcutRaw()
    {
       return shortcut_ != null ? shortcut_.toString(false) : null;
@@ -838,7 +705,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    {
       return executedFromShortcut_;
    }
-
+   
    public static void disableNoHandlerAssertions()
    {
       enableNoHandlerAssertions_ = false;
@@ -855,8 +722,8 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       else
          return "(no description)";
    }
-
-   private static SafeHtml createRightImageHtml(ImageResource image,
+   
+   private static SafeHtml createRightImageHtml(ImageResource image, 
                                                 String desc)
    {
       SafeHtmlBuilder sb = new SafeHtmlBuilder();
@@ -883,7 +750,7 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
       sb.appendHtmlConstant("</img>");
       return sb.toSafeHtml();
    }
-
+   
    private boolean enabled_ = true;
    private boolean visible_ = true;
    private boolean removed_ = false;
@@ -904,9 +771,9 @@ public class AppCommand implements Command, ClickHandler, ImageResourceProvider
    private String id_;
    private ImageResource rightImage_ = null;
    private String rightImageDesc_ = null;
-
+   
    private boolean executedFromShortcut_ = false;
-
+ 
    private static boolean enableNoHandlerAssertions_ = true;
 
    public static final String WINDOW_MODE_BACKGROUND = "background";

@@ -59,7 +59,6 @@ import org.rstudio.studio.client.workbench.commands.Commands;
 import org.rstudio.studio.client.workbench.model.ClientState;
 import org.rstudio.studio.client.workbench.model.Session;
 import org.rstudio.studio.client.workbench.model.UnsavedChangesTarget;
-import org.rstudio.studio.client.workbench.model.helper.IntStateValue;
 import org.rstudio.studio.client.workbench.model.helper.JSObjectStateValue;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 import org.rstudio.studio.client.workbench.prefs.model.UserState;
@@ -196,6 +195,22 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
          }
       });
 
+      events_.addHandler(SwitchToDocEvent.TYPE, new SwitchToDocHandler()
+      {
+         public void onSwitchToDoc(SwitchToDocEvent event)
+         {
+            ensureVisible(false);
+            activeColumn_.setPhysicalTabIndex(event.getSelectedIndex());
+
+            // Fire an activation event just to ensure the activated
+            // tab gets focus
+            commands_.activateSource().execute();
+         }
+      });
+
+      sourceNavigationHistory_.addChangeHandler(event -> manageSourceNavigationCommands());
+
+
       new JSObjectStateValue("source-column-manager",
                              "column-info",
                               ClientState.PERSISTENT,
@@ -246,35 +261,6 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
          }
       };
       setActive(column.getName());
-
-      // get the key to use for active tab persistence; use ordinal-based key
-      // for source windows rather than their ID to avoid unbounded accumulation
-      String activeTabKey = KEY_ACTIVETAB;
-      if (!SourceWindowManager.isMainSourceWindow())
-         activeTabKey += "SourceWindow" +
-            windowManager_.getSourceWindowOrdinal();
-
-      new IntStateValue(MODULE_SOURCE, activeTabKey,
-         ClientState.PROJECT_PERSISTENT,
-         session_.getSessionInfo().getClientState())
-      {
-         @Override
-         protected void onInit(Integer value)
-         {
-            if (value == null)
-               return;
-
-            getActive().initialSelect(value);
-            // clear the history manager
-            columnList_.forEach((column) -> column.clearSourceNavigationHistory());
-         }
-
-         @Override
-         protected Integer getValue()
-         {
-            return getActive().getPhysicalTabIndex();
-         }
-      };
    }
 
    public String add()
@@ -329,6 +315,11 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       return column.getName();
    }
 
+   public void initialSelect(int index)
+   {
+      getActive().initialSelect(index);
+   }
+
    public void setActive(String name)
    {
       if (StringUtil.isNullOrEmpty(name) &&
@@ -347,7 +338,7 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       setActive(column);
    }
 
-   public void setActive(EditingTarget target)
+   private void setActive(EditingTarget target)
    {
       setActive(findByDocument(target.getId()));
       activeColumn_.setActiveEditor(target);
@@ -445,6 +436,11 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       return activeColumn_ != null && activeColumn_.getActiveEditor() != null;
    }
 
+   public boolean isActiveEditor(EditingTarget editingTarget)
+   {
+      return hasActiveEditor() && activeColumn_.getActiveEditor() == editingTarget;
+   }
+
    public boolean getDocsRestored()
    {
       return docsRestored_;
@@ -463,6 +459,11 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
    public int getTabCount()
    {
       return activeColumn_.getTabCount();
+   }
+
+   public int getPhysicalTabIndex()
+   {
+      return activeColumn_.getPhysicalTabIndex();
    }
 
    public ArrayList<String> getNames(boolean excludeMain)
@@ -499,6 +500,17 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
    public Session getSession()
    {
       return session_;
+   }
+
+   public SourceNavigationHistory getSourceNavigationHistory()
+   {
+      return sourceNavigationHistory_;
+   }
+
+   public void recordCurrentNavigationHistoryPosition()
+   {
+      if (hasActiveEditor())
+         activeColumn_.getActiveEditor().recordCurrentNavigationPosition();
    }
 
    public String getEditorPositionString()
@@ -538,6 +550,12 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
        return parseInt(match[1]);
    }-*/;
 
+   public void clearSourceNavigationHistory()
+   {
+      if (!hasDoc())
+         sourceNavigationHistory_.clear();
+   }
+
    public void manageCommands(boolean forceSync)
    {
       boolean saveAllEnabled = false;
@@ -553,8 +571,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
            saveAllEnabled = true;
       }
 
-      // any column can disable a command but only the active column can enable one so it should
-      // always be managed last
+      // the active column is always managed last because any column can disable a command, but
+      // only the active one can enable a command
       if (activeColumn_.isInitialized())
          activeColumn_.manageCommands(forceSync, activeColumn_);
 
@@ -565,8 +583,17 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       // complicated, so leave it enabled
       if (windowManager_.areSourceWindowsOpen())
          commands_.saveAllSourceDocs().setEnabled(saveAllEnabled);
+
+      manageSourceNavigationCommands();
    }
 
+   private void manageSourceNavigationCommands()
+   {
+      commands_.sourceNavigateBack().setEnabled(
+         sourceNavigationHistory_.isBackEnabled());
+      commands_.sourceNavigateBack().setEnabled(
+         sourceNavigationHistory_.isBackEnabled());
+   }
    public EditingTarget addTab(SourceDocument doc, int mode, SourceColumn column)
    {
       if (column == null)
@@ -822,18 +849,6 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       activeColumn_.moveTab(activeColumn_.getPhysicalTabIndex(),
          (activeColumn_.getTabCount() -
             activeColumn_.getPhysicalTabIndex()) - 1);
-   }
-
-   @Handler
-   public void onSourceNavigateBack()
-   {
-      activeColumn_.navigateBack();
-   }
-
-   @Handler
-   public void onSourceNavigateForward()
-   {
-      activeColumn_.navigateForward();
    }
 
    @Handler
@@ -1967,6 +1982,20 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       vimCommands_.addStarRegister();
    }
 
+   public SourceAppCommand getSourceCommand(AppCommand command, SourceColumn column)
+   {
+      // check if we've already create a SourceAppCommand for this command
+      String key = command.getId() + column.getName();
+       if (sourceAppCommands_.get(key) != null)
+         return sourceAppCommands_.get(key);
+
+      // if not found, create it
+      SourceAppCommand sourceCommand =
+         new SourceAppCommand(command, column.getName(), this);
+      sourceAppCommands_.put(key, sourceCommand);
+      return sourceCommand;
+   }
+
    private void openNotebook(final FileSystemItem rnbFile,
                              final ResultCallback<EditingTarget, ServerError> resultCallback)
    {
@@ -2405,6 +2434,7 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
    private final Queue<OpenFileEntry> openFileQueue_ = new LinkedList<>();
    private final ArrayList<SourceColumn> columnList_ = new ArrayList<>();
    private HashSet<AppCommand> dynamicCommands_ = new HashSet<>();
+   private HashMap<String, SourceAppCommand> sourceAppCommands_ = new HashMap<>();
    private SourceVimCommands vimCommands_;
 
    private Commands commands_;
@@ -2423,8 +2453,9 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
    private SourceServerOperations server_;
    private DependencyManager dependencyManager_;
 
-   private static final String MODULE_SOURCE = "source-pane";
-   private static final String KEY_ACTIVETAB = "activeTab";
+   private final SourceNavigationHistory sourceNavigationHistory_ =
+       new SourceNavigationHistory(30);
+
    public final static String COLUMN_PREFIX = "Source";
    public final static String MAIN_SOURCE_NAME = COLUMN_PREFIX;
 }
