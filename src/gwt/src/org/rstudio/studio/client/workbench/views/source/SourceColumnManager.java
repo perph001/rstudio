@@ -320,6 +320,14 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       getActive().initialSelect(index);
    }
 
+   public void setActive(int xpos)
+   {
+      SourceColumn column = findByPosition(xpos);
+      if (column == null)
+         return;
+      setActive(column);
+   }
+
    public void setActive(String name)
    {
       if (StringUtil.isNullOrEmpty(name) &&
@@ -400,7 +408,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
                doActivateSource(afterActivation);
             }
          });
-      } else
+      }
+      else
       {
          doActivateSource(afterActivation);
       }
@@ -653,7 +662,7 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
          int left = w.getAbsoluteLeft();
          int right = w.getAbsoluteLeft() + w.getOffsetWidth();
 
-         if (x > left && x < right)
+         if (x >= left && x <= right)
             return column;
       }
       return null;
@@ -960,7 +969,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
             targetIndex = 0;
          else
             return;
-      } else if (targetIndex < 0)
+      }
+      else if (targetIndex < 0)
       {
          if (wrap)
             targetIndex = activeColumn_.getTabCount() - 1;
@@ -1005,7 +1015,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
                {
                   // No document chosen, just create an empty one
                   newSourceDocWithTemplate(FileTypeRegistry.RMARKDOWN, "", "default.Rmd");
-               } else if (result.isNewDocument())
+               }
+               else if (result.isNewDocument())
                {
                   NewRMarkdownDialog.RmdNewDocument doc =
                      result.getNewDocument();
@@ -1016,7 +1027,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
                      userPrefs_.writeUserPrefs();
                   }
                   newRMarkdownV2Doc(doc);
-               } else
+               }
+               else
                {
                   newDocFromRmdTemplate(result);
                }
@@ -1070,7 +1082,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
                      template = "shiny_presentation.Rmd";
                   else
                      template = "shiny.Rmd";
-               } else
+               }
+               else
                   template = "document.Rmd";
                newSourceDocWithTemplate(FileTypeRegistry.RMARKDOWN,
                   "",
@@ -1297,7 +1310,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
              if (editingTarget.dirtyState().getValue())
              {
                 editingTarget.save(continuation);
-             } else
+             }
+             else
              {
                 continuation.execute();
              }
@@ -1322,7 +1336,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
              {
                 // file backed document -- revert it
                 saveTarget.revertChanges(continuation);
-             } else
+             }
+             else
              {
                 // untitled document -- just close the tab non-interactively
                 closeTab(saveTarget, false, continuation);
@@ -1676,7 +1691,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
          if (resultCallback != null)
             resultCallback.onCancelled();
          showFileTooLargeWarning(file, target.getFileSizeLimit());
-      } else if (file.getLength() > target.getLargeFileSize())
+      }
+      else if (file.getLength() > target.getLargeFileSize())
       {
          confirmOpenLargeFile(file, new Operation()
          {
@@ -1693,7 +1709,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
                   resultCallback.onCancelled();
             }
          });
-      } else
+      }
+      else
       {
          openFileFromServer(file, fileType, resultCallback);
       }
@@ -1710,7 +1727,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
          // file on disk matched the one inside the notebook
          openFileFromServer(rmdFile,
             FileTypeRegistry.RMARKDOWN, resultCallback);
-      } else if (!StringUtil.isNullOrEmpty(doc.getDocId()))
+      }
+      else if (!StringUtil.isNullOrEmpty(doc.getDocId()))
       {
          // this happens when we have to open an untitled buffer for the the
          // notebook (usually because the of a conflict between the Rmd on disk

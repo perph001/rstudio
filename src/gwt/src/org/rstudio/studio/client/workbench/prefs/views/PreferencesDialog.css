@@ -37,7 +37,7 @@
 .paneLayoutTable td.paneLayoutTable {
    background-color: white;
    vertical-align: top;
-   padding: 0;
+   padding: 0px;
    border: none;
    -moz-border-radius: 6px;
    -webkit-border-radius: 6px;
