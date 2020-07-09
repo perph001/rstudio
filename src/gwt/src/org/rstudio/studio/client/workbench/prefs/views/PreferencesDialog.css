@@ -31,7 +31,6 @@
    margin-left: 0;
    margin-right: 0;
    height: 160px;
-   width: 400px;
    padding: 0 0 0 0;
 }
 
@@ -63,8 +62,13 @@
 }
 
 .column .label {
-   margin-top: 170px;
+   display: inherit !important;
+   height: 170px;
+   vertical-align: bottom;
+   overflow-wrap: anywhere;
    overflow: hidden;
+   padding-left: 5px;
+   padding-right: 2px;
 }
 
 .paneLayoutTable .gwt-CheckBox {
@@ -75,7 +79,11 @@
 }
 
 .paneLayoutTable select {
-   width: 250px;
+   table-layout: fixed;
+   overflow: hidden;
+   word-wrap: break-word;
+   overflow-wrap: break-word;
+   max-width: 200px;
    margin-bottom: 5px;
 }
 

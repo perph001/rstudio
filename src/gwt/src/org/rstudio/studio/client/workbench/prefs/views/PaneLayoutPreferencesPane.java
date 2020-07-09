@@ -45,6 +45,7 @@ import org.rstudio.core.client.theme.res.ThemeStyles;
 import org.rstudio.core.client.widget.FormLabel;
 import org.rstudio.core.client.widget.ImageButton;
 import org.rstudio.core.client.widget.ScrollPanelWithClick;
+import org.rstudio.core.client.widget.Toolbar;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefsAccessor;
 import org.rstudio.studio.client.workbench.ui.PaneConfig;
@@ -198,16 +199,37 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       additionalColumnCount_ = userPrefs.panes().getGlobalValue().getAdditionalSourceColumns();
       if (userPrefs.enableAdditionalColumns().getGlobalValue())
       {
-         ImageButton addColumnButton = new ImageButton("Add source", res_.iconAddSourcePane2x());
-         addColumnButton.setVisible(true);
-         add(addColumnButton);
+         Toolbar columnToolbar = new Toolbar("Manage Columns");
+         columnToolbar.setStyleName(res_.styles().newSection());
 
-         paneManager_.syncAdditionalColumnCount(additionalColumnCount_);
-         addColumnButton.addClickHandler(event ->
+         ImageButton addButton = new ImageButton("Add source", res_.iconAddSourcePane());
+         addButton.setVisible(true);
+         addButton.addClickHandler(event ->
          {
-            dirty_ = true;
-            updateTable(displayColumnCount_ + 1);
+            // limiting to 3 additional columns for now because it looks nice
+            if (displayColumnCount_ < 3)
+            {
+               dirty_ = true;
+               updateTable(displayColumnCount_ + 1);
+            }
          });
+
+         columnToolbar.addLeftWidget(addButton);
+         columnToolbar.addLeftSeparator();
+
+         ImageButton removeButton = new ImageButton("Remove source", res_.iconRemoveSourcePane());
+         removeButton.addClickHandler(event ->
+         {
+            if (displayColumnCount_ > 0)
+            {
+               dirty_ = true;
+               updateTable(displayColumnCount_ - 1);
+            }
+         });
+         columnToolbar.addLeftWidget(removeButton);
+         columnToolbar.addLeftSeparator();
+
+         add(columnToolbar);
       }
       else if (additionalColumnCount_ > 0)
             additionalColumnCount_ = paneManager_.closeAllAdditionalColumns();
@@ -329,7 +351,7 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       if (grid_ != null && displayColumnCount_ == updateCount)
          return "";
 
-      int tableWidth = 400;
+      int tableWidth = 438;
 
       // cells will be twice a wide as columns to preserve space (only cells have checkboxes)
       double columnCount = updateCount + 4;
@@ -338,14 +360,14 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
 
       // We never need more than MAX_COLUMN_WIDTH for a column, so if we have extra, give it back to
       // the cells
-      if (Math.min(columnWidthValue, MAX_COLUMN_WIDTH) != columnWidthValue)
+      if (updateCount > 0 && Math.min(columnWidthValue, MAX_COLUMN_WIDTH) != columnWidthValue)
       {
-         double extra = columnWidthValue - MAX_COLUMN_WIDTH;
+         double extra = (updateCount * (columnWidthValue - MAX_COLUMN_WIDTH)) / 2;
          cellWidthValue += extra;
          columnWidthValue = MAX_COLUMN_WIDTH;
       }
-      cellWidthValue -= GRID_CELL_SPACING - GRID_CELL_PADDING;
-      columnWidthValue -= GRID_CELL_SPACING - GRID_CELL_PADDING;
+      cellWidthValue -= (GRID_CELL_SPACING + GRID_CELL_PADDING);
+      columnWidthValue -= (GRID_CELL_SPACING + GRID_CELL_PADDING);
 
       final String columnWidth = columnWidthValue + "px";
       final String cellWidth = cellWidthValue + "px";
@@ -360,7 +382,6 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       if (grid_ == null)
       {
          grid_ = new FlexTable();
-         grid_.addStyleName(res_.styles().newSection());
          grid_.addStyleName(res_.styles().paneLayoutTable());
          grid_.setCellSpacing(GRID_CELL_SPACING);
          grid_.setCellPadding(GRID_CELL_PADDING);
@@ -458,7 +479,7 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       closeButton.addStyleName(res_.styles().closeButton());
 
       Roles.getButtonRole().setAriaLabelProperty(closeButton.getElement(), "Close source column");
-      verticalPanel.add(closeButton);
+      //verticalPanel.add(closeButton);
 
       FormLabel label = new FormLabel();
       label.setText(UserPrefsAccessor.Panes.QUADRANTS_SOURCE);
@@ -631,5 +652,5 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
 
    private final static int GRID_CELL_SPACING = 8;
    private final static int GRID_CELL_PADDING = 6;
-   private final static int MAX_COLUMN_WIDTH = 70;
+   private final static int MAX_COLUMN_WIDTH = 50 + GRID_CELL_PADDING + GRID_CELL_SPACING;
 }
