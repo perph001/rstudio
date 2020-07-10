@@ -38,7 +38,7 @@
    background-color: white;
    vertical-align: top;
    padding: 0px;
-   border: none;
+   border: 1px solid #1e77bc;
    -moz-border-radius: 6px;
    -webkit-border-radius: 6px;
    border-radius: 6px;
@@ -84,7 +84,7 @@
    word-wrap: break-word;
    overflow-wrap: break-word;
    max-width: 200px;
-   margin-bottom: 5px;
+   margin: 2px 2px 5px 2px;
 }
 
 .themeChooser select {

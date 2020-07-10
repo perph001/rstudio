@@ -355,7 +355,7 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       if (grid_ != null && displayColumnCount_ == updateCount)
          return "";
 
-      int tableWidth = 438;
+      int tableWidth = 435;
 
       // cells will be twice a wide as columns to preserve space (only cells have checkboxes)
       double columnCount = updateCount + 4;
