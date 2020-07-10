@@ -43,9 +43,9 @@ import org.rstudio.core.client.resources.ImageResource2x;
 import org.rstudio.core.client.theme.res.ThemeResources;
 import org.rstudio.core.client.theme.res.ThemeStyles;
 import org.rstudio.core.client.widget.FormLabel;
-import org.rstudio.core.client.widget.ImageButton;
 import org.rstudio.core.client.widget.ScrollPanelWithClick;
 import org.rstudio.core.client.widget.Toolbar;
+import org.rstudio.core.client.widget.ToolbarButton;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefsAccessor;
 import org.rstudio.studio.client.workbench.ui.PaneConfig;
@@ -202,30 +202,34 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
          Toolbar columnToolbar = new Toolbar("Manage Columns");
          columnToolbar.setStyleName(res_.styles().newSection());
 
-         ImageButton addButton = new ImageButton("Add source", res_.iconAddSourcePane());
-         addButton.setVisible(true);
-         addButton.addClickHandler(event ->
-         {
-            // limiting to 3 additional columns for now because it looks nice
-            if (displayColumnCount_ < 3)
+         ToolbarButton addButton = new ToolbarButton("Add Column",
+            "Add column",
+            res_.iconAddSourcePane(),
+            event ->
             {
-               dirty_ = true;
-               updateTable(displayColumnCount_ + 1);
-            }
-         });
+               // limiting to 3 additional columns for now because it looks nice
+               if (displayColumnCount_ < 3)
+               {
+                  dirty_ = true;
+                  updateTable(displayColumnCount_ + 1);
+               }
+            });
 
          columnToolbar.addLeftWidget(addButton);
          columnToolbar.addLeftSeparator();
 
-         ImageButton removeButton = new ImageButton("Remove source", res_.iconRemoveSourcePane());
-         removeButton.addClickHandler(event ->
-         {
-            if (displayColumnCount_ > 0)
+
+         ToolbarButton removeButton = new ToolbarButton("Remove Column",
+            "Remove column",
+            res_.iconRemoveSourcePane(),
+            event ->
             {
-               dirty_ = true;
-               updateTable(displayColumnCount_ - 1);
-            }
-         });
+               if (displayColumnCount_ > 0)
+               {
+                  dirty_ = true;
+                  updateTable(displayColumnCount_ - 1);
+               }
+            });
          columnToolbar.addLeftWidget(removeButton);
          columnToolbar.addLeftSeparator();
 

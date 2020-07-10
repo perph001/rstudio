@@ -1388,8 +1388,6 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       {
          if (!column.hasDoc())
          {
-            if (column == activeColumn_)
-               setActive(MAIN_SOURCE_NAME);
             closeColumn(column.getName());
             if (num >= columnList_.size() || num == 1)
                break;
@@ -1418,6 +1416,7 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
          column.addTab(target, null, false);
       }
 
+      manageCommands(true);
       columnState_ = State.createState(JsUtil.toJsArrayString(getNames(false)));
    }
 
