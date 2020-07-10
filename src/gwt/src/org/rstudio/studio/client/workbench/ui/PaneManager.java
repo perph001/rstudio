@@ -1216,7 +1216,6 @@ public class PaneManager
 
          if (column.getTabCount() == 0)
          {
-            sourceColumnManager_.closeColumn(name);
             panel_.removeLeftWidget(column.asWidget());
             sourceColumnManager_.closeColumn(column, true);
             panesByName_.remove(name);
