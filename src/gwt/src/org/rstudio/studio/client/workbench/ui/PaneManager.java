@@ -1157,9 +1157,7 @@ public class PaneManager
       {
          int difference = count - additionalSourceCount_;
          for (int i = 0; i < difference; i++)
-         {
             addSourceWindow();
-         }
       }
       else
       {

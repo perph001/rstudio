@@ -62,7 +62,6 @@ import org.rstudio.studio.client.workbench.model.UnsavedChangesTarget;
 import org.rstudio.studio.client.workbench.model.helper.JSObjectStateValue;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 import org.rstudio.studio.client.workbench.prefs.model.UserState;
-import org.rstudio.studio.client.workbench.ui.PaneConfig;
 import org.rstudio.studio.client.workbench.ui.unsaved.UnsavedChangesDialog;
 import org.rstudio.studio.client.workbench.views.environment.events.DebugModeChangedEvent;
 import org.rstudio.studio.client.workbench.views.output.find.events.FindInFilesEvent;
@@ -225,21 +224,8 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
             for (int i = 0; i < columnState_.getNames().length; i++)
             {
                String name = columnState_.getNames()[i];
-
                if (!StringUtil.equals(name, MAIN_SOURCE_NAME))
-               {
-                  PaneConfig paneConfig = userPrefs_.panes().getValue().cast();
-                  userPrefs_.panes().setGlobalValue(PaneConfig.create(
-                     JsArrayUtil.copy(paneConfig.getQuadrants()),
-                     paneConfig.getTabSet1(),
-                     paneConfig.getTabSet2(),
-                     paneConfig.getHiddenTabSet(),
-                     paneConfig.getConsoleLeftOnTop(),
-                     paneConfig.getConsoleRightOnTop(),
-                     0).cast());
-                  consolidateColumns(1);
-                  return;
-               }
+                  add(name, false);
             }
          }
 
@@ -1392,28 +1378,50 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
       }
 
       // if we could not remove empty columns to get to the desired amount, consolidate editors
-      ArrayList<EditingTarget> moveEditors = new ArrayList<>();
+      ArrayList<SourceDocument> moveEditors = new ArrayList<>();
       if (num < columnList_.size())
       {
-         for (SourceColumn column : columnList_)
+         CPSEditingTargetCommand moveCommand = new CPSEditingTargetCommand()
          {
-            if (!StringUtil.equals(column.getName(), MAIN_SOURCE_NAME))
+            @Override
+            public void execute(EditingTarget editingTarget, Command continuation)
             {
-               moveEditors.addAll(column.getEditors());
-               closeAllLocalSourceDocs("Close All", column, null, false);
-               if (columnList_.size() <= num || num == 1)
-                  break;
+               server_.getSourceDocument(editingTarget.getId(),
+                  new ServerRequestCallback<SourceDocument>()
+                  {
+                     @Override
+                     public void onResponseReceived(final SourceDocument doc)
+                     {
+                        getByName(MAIN_SOURCE_NAME).addTab(doc, Source.OPEN_INTERACTIVE);
+                     }
+
+                     @Override
+                     public void onError(ServerError error)
+                     {
+                        globalDisplay_.showErrorMessage("Document Tab Move Failed",
+                           "Couln't move the tab to this window: \n" +
+                              error.getMessage());
+                     }
+                  });
             }
+         };
+         ArrayList<SourceColumn> moveColumns = new ArrayList<>(columnList_);
+         moveColumns.remove(getByName(MAIN_SOURCE_NAME));
+         int additionalColumnCount = num - 1;
+         if (num > 1 &&
+             moveColumns.size() != additionalColumnCount)
+            moveColumns = new ArrayList<>(moveColumns.subList(0,
+               moveColumns.size() - additionalColumnCount));
+
+         for (SourceColumn column : moveColumns)
+         {
+            ArrayList<EditingTarget> editors = column.getEditors();
+            cpsExecuteForEachEditor(
+               editors,
+               moveCommand);
+            closeColumn(column, true);
          }
       }
-
-      SourceColumn column = getByName(MAIN_SOURCE_NAME);
-      for (EditingTarget target : moveEditors)
-      {
-         column.addTab(target, null, false);
-      }
-
-      manageCommands(true);
       columnState_ = State.createState(JsUtil.toJsArrayString(getNames(false)));
    }
 

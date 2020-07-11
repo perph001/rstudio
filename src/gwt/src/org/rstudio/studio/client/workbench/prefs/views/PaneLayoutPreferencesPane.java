@@ -18,8 +18,6 @@ import com.google.gwt.aria.client.Roles;
 import com.google.gwt.core.client.JsArrayString;
 import com.google.gwt.event.dom.client.ChangeEvent;
 import com.google.gwt.event.dom.client.ChangeHandler;
-import com.google.gwt.event.dom.client.ClickEvent;
-import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.event.logical.shared.HasValueChangeHandlers;
 import com.google.gwt.event.logical.shared.ValueChangeEvent;
 import com.google.gwt.event.logical.shared.ValueChangeHandler;
@@ -29,7 +27,6 @@ import com.google.gwt.user.client.ui.CheckBox;
 import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.FlexTable;
 import com.google.gwt.user.client.ui.FlowPanel;
-import com.google.gwt.user.client.ui.Image;
 import com.google.gwt.user.client.ui.Label;
 import com.google.gwt.user.client.ui.ListBox;
 import com.google.gwt.user.client.ui.ScrollPanel;
@@ -40,8 +37,6 @@ import org.rstudio.core.client.Debug;
 import org.rstudio.core.client.StringUtil;
 import org.rstudio.core.client.prefs.RestartRequirement;
 import org.rstudio.core.client.resources.ImageResource2x;
-import org.rstudio.core.client.theme.res.ThemeResources;
-import org.rstudio.core.client.theme.res.ThemeStyles;
 import org.rstudio.core.client.widget.FormLabel;
 import org.rstudio.core.client.widget.ScrollPanelWithClick;
 import org.rstudio.core.client.widget.Toolbar;
@@ -52,7 +47,6 @@ import org.rstudio.studio.client.workbench.ui.PaneConfig;
 import org.rstudio.studio.client.workbench.ui.PaneManager;
 
 import java.util.ArrayList;
-import java.util.List;
 
 public class PaneLayoutPreferencesPane extends PreferencesPane
 {
@@ -111,7 +105,6 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       ModuleList(String width)
       {
          checkBoxes_ = new ArrayList<>();
-         ScrollPanel scrollPanel = new ScrollPanelWithClick();
          FlowPanel flowPanel = new FlowPanel();
          for (String module : PaneConfig.getAllTabs())
          {
@@ -122,6 +115,8 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
             if (module == "Presentation")
                checkBox.setVisible(false);
          }
+
+         ScrollPanel scrollPanel = new ScrollPanelWithClick();
          scrollPanel.setStyleName(res_.styles().paneLayoutTable());
          scrollPanel.setWidth(width);
          scrollPanel.add(flowPanel);
@@ -195,10 +190,11 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
 
       add(new Label("Choose the layout of the panes in RStudio by selecting from the controls in each quadrant.", true));
 
-      Toolbar columnToolbar = new Toolbar("Manage Columns");
+      Toolbar columnToolbar = new Toolbar("Manage Column Display");
       columnToolbar.setStyleName(res_.styles().newSection());
 
-      ToolbarButton addButton = new ToolbarButton("Add Column",
+      ToolbarButton addButton = new ToolbarButton(
+         "Add Column",
          "Add column",
          res_.iconAddSourcePane(),
          event ->
@@ -213,7 +209,8 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       columnToolbar.addLeftWidget(addButton);
       columnToolbar.addLeftSeparator();
 
-      ToolbarButton removeButton = new ToolbarButton("Remove Column",
+      ToolbarButton removeButton = new ToolbarButton(
+         "Remove Column",
          "Remove column",
          res_.iconRemoveSourcePane(),
          event ->
@@ -267,28 +264,21 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       new ExclusiveSelectionMaintainer(visiblePanes_);
 
       for (ListBox lb : visiblePanes_)
-         lb.addChangeHandler(new ChangeHandler()
-         {
-            public void onChange(ChangeEvent event)
-            {
-               dirty_ = true;
-            }
-         });
+         lb.addChangeHandler(event -> dirty_ = true);
 
       additionalColumnCount_ = value.getAdditionalSourceColumns();
+      String paneWidth = updateTable(additionalColumnCount_);
 
-      String cellWidth = updateTable(additionalColumnCount_);
       visiblePanePanels_ = new VerticalPanel[] {leftTopPanel_, leftBottomPanel_,
                                             rightTopPanel_, rightBottomPanel_};
 
-      tabSet1ModuleList_ = new ModuleList(cellWidth);
+      tabSet1ModuleList_ = new ModuleList(paneWidth);
       tabSet1ModuleList_.setValue(toArrayList(userPrefs.panes().getGlobalValue().getTabSet1()));
-      tabSet2ModuleList_ = new ModuleList(cellWidth);
+      tabSet2ModuleList_ = new ModuleList(paneWidth);
       tabSet2ModuleList_.setValue(toArrayList(userPrefs.panes().getGlobalValue().getTabSet2()));
-      hiddenTabSetModuleList_ = new ModuleList(cellWidth);
+      hiddenTabSetModuleList_ = new ModuleList(paneWidth);
       hiddenTabSetModuleList_.setValue(toArrayList(
                userPrefs.panes().getGlobalValue().getHiddenTabSet()));
-
 
       ValueChangeHandler<ArrayList<Boolean>> vch = new ValueChangeHandler<ArrayList<Boolean>>()
       {
@@ -339,24 +329,21 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
       updateTabSetLabels();
    }
 
-   private String updateTable(int updateCount)
+   private String updateTable(int newCount)
    {
       // nothing has changed since the last update
-      if (grid_ != null && displayColumnCount_ == updateCount)
+      if (grid_ != null && displayColumnCount_ == newCount)
          return "";
 
-      int tableWidth = 435;
+      // cells will be twice a wide as columns to preserve space
+      double columnCount = newCount + (2 * GRID_PANE_COUNT);
+      double columnWidthValue = (double)TABLE_WIDTH / columnCount;
+      double cellWidthValue = columnWidthValue * GRID_PANE_COUNT;
 
-      // cells will be twice a wide as columns to preserve space (only cells have checkboxes)
-      double columnCount = updateCount + 4;
-      double columnWidthValue = (double)tableWidth / columnCount;
-      double cellWidthValue = columnWidthValue * 2;
-
-      // We never need more than MAX_COLUMN_WIDTH for a column, so if we have extra, give it back to
-      // the cells
-      if (updateCount > 0 && Math.min(columnWidthValue, MAX_COLUMN_WIDTH) != columnWidthValue)
+      // If the column width is bigger than MAX_COLUMN_WIDTH, give space back to the panes
+      if (newCount > 0 && Math.min(columnWidthValue, MAX_COLUMN_WIDTH) != columnWidthValue)
       {
-         double extra = (updateCount * (columnWidthValue - MAX_COLUMN_WIDTH)) / 2;
+         double extra = (newCount * (columnWidthValue - MAX_COLUMN_WIDTH)) / GRID_PANE_COUNT;
          cellWidthValue += extra;
          columnWidthValue = MAX_COLUMN_WIDTH;
       }
@@ -365,14 +352,12 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
 
       final String columnWidth = columnWidthValue + "px";
       final String cellWidth = cellWidthValue + "px";
-
-
       leftTop_.setWidth(cellWidth);
       leftBottom_.setWidth(cellWidth);
       rightTop_.setWidth(cellWidth);
       rightBottom_.setWidth(cellWidth);
 
-      // this is the first time we're setting up the table
+      // create grid
       if (grid_ == null)
       {
          grid_ = new FlexTable();
@@ -380,16 +365,15 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
          grid_.setCellSpacing(GRID_CELL_SPACING);
          grid_.setCellPadding(GRID_CELL_PADDING);
 
-         // the two rows have different columns because the source columns only use one row
+         // the two rows have a different number of columns
+         // because the source columns only use one
          int topColumn;
-         int bottomColumn = 0;
-         for (topColumn = 0; topColumn < updateCount; topColumn++)
+         for (topColumn = 0; topColumn < newCount; topColumn++)
          {
             ScrollPanel sp = createColumn();
-            visibleColumns_.add(sp);
             grid_.setWidget(0, topColumn, sp);
             grid_.getFlexCellFormatter().setRowSpan(0, topColumn, 2);
-            grid_.getCellFormatter().setStyleName(0, topColumn, res_.styles().column());
+            grid_.getCellFormatter().setStyleName(0, topColumn, res_.styles().paneLayoutTable());
             grid_.getColumnFormatter().setWidth(topColumn, columnWidth);
          }
 
@@ -399,6 +383,7 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
          grid_.setWidget(0, ++topColumn, rightTopPanel_ = createPane(rightTop_));
          grid_.getCellFormatter().setStyleName(0, topColumn, res_.styles().paneLayoutTable());
 
+         int bottomColumn = 0;
          grid_.setWidget(1, bottomColumn, leftBottomPanel_ = createPane(leftBottom_));
          grid_.getCellFormatter().setStyleName(1, bottomColumn, res_.styles().paneLayoutTable());
 
@@ -406,53 +391,34 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
          grid_.getCellFormatter().setStyleName(1, bottomColumn, res_.styles().paneLayoutTable());
 
          add(grid_);
-         displayColumnCount_ = updateCount;
+         displayColumnCount_ = newCount;
          return cellWidth;
       }
 
-      leftTopPanel_.setWidth(cellWidth);
-      leftBottomPanel_.setWidth(cellWidth);
-      rightTopPanel_.setWidth(cellWidth);
-      rightBottomPanel_.setWidth(cellWidth);
+      // adjust existing grid
+      int difference = newCount - displayColumnCount_;
+      displayColumnCount_ = newCount;
 
-      int topColumn = displayColumnCount_;
-      int bottomColumn = 0;
-
-      grid_.getCellFormatter().setWidth(0, topColumn, cellWidth);
-      grid_.getCellFormatter().setWidth(0, ++topColumn, cellWidth);
-
-      grid_.getCellFormatter().setWidth(1, bottomColumn, cellWidth);
-      grid_.getCellFormatter().setWidth(1, ++bottomColumn, cellWidth);
-
-      int difference = updateCount - displayColumnCount_;
-      displayColumnCount_ = updateCount;
-
-      // when the number of columns has decreased, remove some
-      for (int i = 0; i > difference && !visibleColumns_.isEmpty(); difference++)
-      {
-         visibleColumns_.remove(0);
+      // when the number of columns has decreased, remove columns
+      for (int i = 0; i > difference; i--)
          grid_.removeCell(0, i);
-      }
 
-      // when the number of columns has increased, add some
+      // when the number of columns has increased, add columns
       for (int i = 0; i < difference; i++)
       {
-         grid_.insertCell(0, 0);
-
          ScrollPanel sp = createColumn();
-         visibleColumns_.add(sp);
-
+         grid_.insertCell(0, 0);
          grid_.setWidget(0, 0, sp);
          grid_.getFlexCellFormatter().setRowSpan(0, 0, 2);
-         grid_.getCellFormatter().setStyleName(0, 0, res_.styles().column());
+         grid_.getCellFormatter().setStyleName(0, 0, res_.styles().paneLayoutTable());
       }
 
-      // update the width
-      for (int i = 0; i < updateCount; i++)
+      // update the widths
+      for (int i = 0; i < newCount; i++)
          grid_.getCellFormatter().setWidth(0, i, columnWidth);
-
       tabSet1ModuleList_.setWidth(cellWidth);
       tabSet2ModuleList_.setWidth(cellWidth);
+
       return cellWidth;
    }
 
@@ -466,30 +432,12 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
    private ScrollPanel createColumn()
    {
       VerticalPanel verticalPanel = new VerticalPanel();
-
-      Image closeButton = new Image(new ImageResource2x(ThemeResources.INSTANCE.closeTab2x()));
-      closeButton.setStylePrimaryName(ThemeStyles.INSTANCE.closeTabButton());
-      closeButton.addStyleName(ThemeStyles.INSTANCE.handCursor());
-      closeButton.addStyleName(res_.styles().closeButton());
-
-      Roles.getButtonRole().setAriaLabelProperty(closeButton.getElement(), "Close source column");
-      //verticalPanel.add(closeButton);
-
       FormLabel label = new FormLabel();
       label.setText(UserPrefsAccessor.Panes.QUADRANTS_SOURCE);
       label.setStyleName(res_.styles().label());
       verticalPanel.add(label);
 
       ScrollPanel sp = new ScrollPanel();
-      closeButton.addClickHandler(new ClickHandler()
-      {
-         @Override
-         public void onClick(ClickEvent event)
-         {
-            dirty_ = true;
-            updateTable(displayColumnCount_ - 1);
-         }
-      });
       sp.add(verticalPanel);
       Roles.getTextboxRole().setAriaLabelProperty(sp.getElement(), "Additional source column");
 
@@ -627,7 +575,6 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
    private final ListBox rightTop_;
    private final ListBox rightBottom_;
    private final ListBox[] visiblePanes_;
-   private final List<ScrollPanel> visibleColumns_ = new ArrayList<>();
    private final VerticalPanel[] visiblePanePanels_;
    private final ModuleList tabSet1ModuleList_;
    private final ModuleList tabSet2ModuleList_;
@@ -647,4 +594,6 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
    private final static int GRID_CELL_SPACING = 8;
    private final static int GRID_CELL_PADDING = 6;
    private final static int MAX_COLUMN_WIDTH = 50 + GRID_CELL_PADDING + GRID_CELL_SPACING;
+   private final static int TABLE_WIDTH = 435;
+   private final static int GRID_PANE_COUNT = 2;
 }
