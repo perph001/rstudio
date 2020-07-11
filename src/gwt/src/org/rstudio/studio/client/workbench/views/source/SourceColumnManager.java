@@ -228,24 +228,17 @@ public class SourceColumnManager implements CommandPaletteEntrySource,
 
                if (!StringUtil.equals(name, MAIN_SOURCE_NAME))
                {
-                  if (userPrefs_.enableAdditionalColumns().getGlobalValue())
-                  {
-                     add(name, false);
-                  }
-                  else
-                  {
-                     PaneConfig paneConfig = userPrefs_.panes().getValue().cast();
-                     userPrefs_.panes().setGlobalValue(PaneConfig.create(
-                        JsArrayUtil.copy(paneConfig.getQuadrants()),
-                        paneConfig.getTabSet1(),
-                        paneConfig.getTabSet2(),
-                        paneConfig.getHiddenTabSet(),
-                        paneConfig.getConsoleLeftOnTop(),
-                        paneConfig.getConsoleRightOnTop(),
-                        0).cast());
-                     consolidateColumns(1);
-                     return;
-                  }
+                  PaneConfig paneConfig = userPrefs_.panes().getValue().cast();
+                  userPrefs_.panes().setGlobalValue(PaneConfig.create(
+                     JsArrayUtil.copy(paneConfig.getQuadrants()),
+                     paneConfig.getTabSet1(),
+                     paneConfig.getTabSet2(),
+                     paneConfig.getHiddenTabSet(),
+                     paneConfig.getConsoleLeftOnTop(),
+                     paneConfig.getConsoleRightOnTop(),
+                     0).cast());
+                  consolidateColumns(1);
+                  return;
                }
             }
          }

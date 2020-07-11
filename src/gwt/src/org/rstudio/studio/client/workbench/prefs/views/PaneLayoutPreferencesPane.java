@@ -195,48 +195,38 @@ public class PaneLayoutPreferencesPane extends PreferencesPane
 
       add(new Label("Choose the layout of the panes in RStudio by selecting from the controls in each quadrant.", true));
 
-      // temporary check for enabling additional columns feature
-      additionalColumnCount_ = userPrefs.panes().getGlobalValue().getAdditionalSourceColumns();
-      if (userPrefs.enableAdditionalColumns().getGlobalValue())
-      {
-         Toolbar columnToolbar = new Toolbar("Manage Columns");
-         columnToolbar.setStyleName(res_.styles().newSection());
+      Toolbar columnToolbar = new Toolbar("Manage Columns");
+      columnToolbar.setStyleName(res_.styles().newSection());
 
-         ToolbarButton addButton = new ToolbarButton("Add Column",
-            "Add column",
-            res_.iconAddSourcePane(),
-            event ->
+      ToolbarButton addButton = new ToolbarButton("Add Column",
+         "Add column",
+         res_.iconAddSourcePane(),
+         event ->
+         {
+            // limiting to 3 additional columns for now because it looks nice
+            if (displayColumnCount_ < 3)
             {
-               // limiting to 3 additional columns for now because it looks nice
-               if (displayColumnCount_ < 3)
-               {
-                  dirty_ = true;
-                  updateTable(displayColumnCount_ + 1);
-               }
-            });
+               dirty_ = true;
+               updateTable(displayColumnCount_ + 1);
+            }
+         });
+      columnToolbar.addLeftWidget(addButton);
+      columnToolbar.addLeftSeparator();
 
-         columnToolbar.addLeftWidget(addButton);
-         columnToolbar.addLeftSeparator();
-
-
-         ToolbarButton removeButton = new ToolbarButton("Remove Column",
-            "Remove column",
-            res_.iconRemoveSourcePane(),
-            event ->
+      ToolbarButton removeButton = new ToolbarButton("Remove Column",
+         "Remove column",
+         res_.iconRemoveSourcePane(),
+         event ->
+         {
+            if (displayColumnCount_ > 0)
             {
-               if (displayColumnCount_ > 0)
-               {
-                  dirty_ = true;
-                  updateTable(displayColumnCount_ - 1);
-               }
-            });
-         columnToolbar.addLeftWidget(removeButton);
-         columnToolbar.addLeftSeparator();
-
-         add(columnToolbar);
-      }
-      else if (additionalColumnCount_ > 0)
-            additionalColumnCount_ = paneManager_.closeAllAdditionalColumns();
+               dirty_ = true;
+               updateTable(displayColumnCount_ - 1);
+            }
+         });
+      columnToolbar.addLeftWidget(removeButton);
+      columnToolbar.addLeftSeparator();
+      add(columnToolbar);
 
       String[] visiblePanes = PaneConfig.getVisiblePanes();
 
