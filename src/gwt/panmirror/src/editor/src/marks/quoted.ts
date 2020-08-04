@@ -13,118 +13,130 @@
  *
  */
 
-import { Schema, Mark, Fragment, Node as ProsemirrorNode } from 'prosemirror-model';
+import { Schema, Mark, Fragment, Node as ProsemirrorNode, DOMOutputSpec } from 'prosemirror-model';
 import { Transaction } from 'prosemirror-state';
 import { findChildren } from 'prosemirror-utils';
 
-import { Extension } from '../api/extension';
+import { Extension, ExtensionContext } from '../api/extension';
 import { PandocOutput, PandocToken, PandocTokenType } from '../api/pandoc';
 import { removeInvalidatedMarks, detectAndApplyMarks } from '../api/mark';
 import { FixupContext } from '../api/fixup';
 import { MarkTransaction } from '../api/transaction';
 import { QuoteType, quotesForType, kQuoteType, kQuoteChildren } from '../api/quote';
 
-const extension: Extension = {
-  marks: [
-    {
-      name: 'quoted',
-      spec: {
-        inclusive: false,
-        excludes: '',
-        attrs: {
-          type: {},
-        },
-        parseDOM: [
-          {
-            tag: "span[class*='quoted']",
-            getAttrs(dom: Node | string) {
-              const el = dom as Element;
-              return {
-                type: el.getAttribute('data-type'),
-              };
-            },
-          },
-        ],
-        toDOM(mark: Mark) {
-          return ['span', { class: 'quoted', 'data-type': mark.attrs.type }];
-        },
-      },
-      pandoc: {
-        readers: [
-          {
-            token: PandocTokenType.Quoted,
-            mark: 'quoted',
-            getAttrs: (tok: PandocToken) => {
-              return {
-                type: tok.c[kQuoteType].t,
-              };
-            },
-            getChildren: (tok: PandocToken) => {
-              const type = tok.c[kQuoteType].t;
-              const quotes = quotesForType(type);
-              return [
-                {
-                  t: 'Str',
-                  c: quotes.begin,
-                },
-                ...tok.c[kQuoteChildren],
-                {
-                  t: 'Str',
-                  c: quotes.end,
-                },
-              ];
-            },
-          },
-        ],
-        writer: {
-          priority: 10,
-          write: (output: PandocOutput, mark: Mark, parent: Fragment) => {
-            output.writeToken(PandocTokenType.Quoted, () => {
-              output.writeToken(mark.attrs.type);
-              output.writeArray(() => {
-                const text = parent.cut(1, parent.size - 1);
-                output.writeInlines(text);
-              });
-            });
-          },
-        },
-      },
-    },
-  ],
+const extension = (context: ExtensionContext) => {
 
-  fixups: (schema: Schema) => {
-    return [
-      (tr: Transaction, context: FixupContext) => {
-        // only apply on save
-        if (context !== FixupContext.Save) {
+  const smart = context.pandocExtensions.smart;
+
+  return {
+    marks: [
+      {
+        name: 'quoted',
+        spec: {
+          inclusive: false,
+          excludes: '',
+          attrs: {
+            type: {},
+          },
+          parseDOM: [
+            {
+              tag: "span[class*='quoted']",
+              getAttrs(dom: Node | string) {
+                const el = dom as Element;
+                return {
+                  type: el.getAttribute('data-type'),
+                };
+              },
+            },
+          ],
+          toDOM(mark: Mark): DOMOutputSpec {
+            return ['span', { class: 'quoted', 'data-type': mark.attrs.type }];
+          },
+        },
+        pandoc: {
+          readers: [
+            {
+              token: PandocTokenType.Quoted,
+              mark: 'quoted',
+              getAttrs: (tok: PandocToken) => {
+                return {
+                  type: tok.c[kQuoteType].t,
+                };
+              },
+              getChildren: (tok: PandocToken) => {
+                const type = tok.c[kQuoteType].t;
+                const quotes = quotesForType(type);
+                return [
+                  {
+                    t: 'Str',
+                    c: quotes.begin,
+                  },
+                  ...tok.c[kQuoteChildren],
+                  {
+                    t: 'Str',
+                    c: quotes.end,
+                  },
+                ];
+              },
+            },
+          ],
+          writer: {
+            priority: 10,
+            write: (output: PandocOutput, mark: Mark, parent: Fragment) => {
+              // write w/o the mark if "smart" is enabled. that will allow our pandocFromProsemirror
+              // code to replace it with a straight quote (otherwise the quote will bypass the 
+              // writeText handler)
+              if (smart) {
+                output.writeInlines(parent);
+              } else {
+                output.writeToken(PandocTokenType.Quoted, () => {
+                  output.writeToken(mark.attrs.type);
+                  output.writeArray(() => {
+                    const text = parent.cut(1, parent.size - 1);
+                    output.writeInlines(text);
+                  });
+                });
+              }
+            },
+          },
+        },
+      },
+    ],
+
+    fixups: (schema: Schema) => {
+      return [
+        (tr: Transaction, ctx: FixupContext) => {
+          // only apply on save
+          if (ctx !== FixupContext.Save) {
+            return tr;
+          }
+
+          // create mark transation wrapper
+          const markTr = new MarkTransaction(tr);
+
+          const predicate = (node: ProsemirrorNode) => {
+            return node.isTextblock && node.type.allowsMarkType(node.type.schema.marks.quoted);
+          };
+          findChildren(tr.doc, predicate).forEach(nodeWithPos => {
+            const { node, pos } = nodeWithPos;
+
+            // find quoted marks where the text is no longer quoted (remove the mark)
+            removeInvalidatedMarks(markTr, node, pos, /(“[^”]*”|‘[^’]*’)/g, schema.marks.quoted);
+
+            // find quoted text that doesn't have a quoted mark (add the mark)
+            detectAndApplyMarks(markTr, tr.doc.nodeAt(pos)!, pos, /“[^”]*”/g, schema.marks.quoted, () => ({
+              type: QuoteType.DoubleQuote,
+            }));
+            detectAndApplyMarks(markTr, tr.doc.nodeAt(pos)!, pos, /‘[^’]*’/g, schema.marks.quoted, () => ({
+              type: QuoteType.SingleQuote,
+            }));
+          });
+
           return tr;
-        }
-
-        // create mark transation wrapper
-        const markTr = new MarkTransaction(tr);
-
-        const predicate = (node: ProsemirrorNode) => {
-          return node.isTextblock && node.type.allowsMarkType(node.type.schema.marks.quoted);
-        };
-        findChildren(tr.doc, predicate).forEach(nodeWithPos => {
-          const { node, pos } = nodeWithPos;
-
-          // find quoted marks where the text is no longer quoted (remove the mark)
-          removeInvalidatedMarks(markTr, node, pos, /(“[^”]*”|‘[^’]*’)/g, schema.marks.quoted);
-
-          // find quoted text that doesn't have a quoted mark (add the mark)
-          detectAndApplyMarks(markTr, tr.doc.nodeAt(pos)!, pos, /“[^”]*”/g, schema.marks.quoted, () => ({
-            type: QuoteType.DoubleQuote,
-          }));
-          detectAndApplyMarks(markTr, tr.doc.nodeAt(pos)!, pos, /‘[^’]*’/g, schema.marks.quoted, () => ({
-            type: QuoteType.SingleQuote,
-          }));
-        });
-
-        return tr;
-      },
-    ];
-  },
+        },
+      ];
+    },
+  };
 };
 
 export default extension;

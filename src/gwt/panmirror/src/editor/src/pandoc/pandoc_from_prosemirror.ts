@@ -220,6 +220,20 @@ class PandocWriter implements PandocOutput {
               return p1 + Array(p2.length + 1).join(' ');
             });
           }
+          // reverse smart punctuation. pandoc does this autmoatically for markdown
+          // writing w/ +smart, however this also results in nbsp's being inserted
+          // after selected abbreviations like e.g. and Mr., and we don't want that
+          // to happen for editing (b/c there are no nbsp's in the document that 
+          // are not obviously visible and were not put there by the user)
+          if (this.extensions.smart) {
+            textRun = textRun
+              .replace(/—/g, '---')
+              .replace(/–/g, '--')
+              .replace(/…/g, '...')
+              .replace(/[“”]/g, '"')
+              .replace(/[‘’]/g, '\'');
+          }
+
           this.writeToken(PandocTokenType.Str, textRun);
           textRun = '';
         }
