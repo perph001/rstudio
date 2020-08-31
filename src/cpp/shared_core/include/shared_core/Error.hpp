@@ -496,6 +496,18 @@ public:
     * @brief Sets the property that indicates that this error was expected.
     */
    void setExpected();
+   
+   /**
+    * @brief Sets whether this error should be logged.
+    */
+   void setShouldLog(bool in_shouldLog);
+   
+   /**
+    * @brief Gets whether this error should be logged.
+    * 
+    * @return True if this error should be logged; false otherwise.
+    */
+   bool getShouldLog() const;
 
 private:
    /**

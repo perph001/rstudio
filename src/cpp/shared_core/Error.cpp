@@ -40,6 +40,10 @@ namespace {
 constexpr const char* s_errorExpected = "expected";
 constexpr const char* s_errorExpectedValue = "yes";
 
+constexpr const char* s_shouldLog = "shouldLog";
+constexpr const char* s_shouldLogYesValue = "yes";
+constexpr const char* s_shouldLogNoValue  = "no";
+
 constexpr const char* s_occurredAt = "OCCURRED AT";
 constexpr const char* s_causedBy = "CAUSED BY";
 
@@ -435,6 +439,16 @@ void Error::copyOnWrite()
 {
    if ((m_impl != nullptr) && !m_impl.unique())
       m_impl.reset(new Impl(impl()));
+}
+
+void Error::setShouldLog(bool in_shouldLog)
+{
+   addOrUpdateProperty(s_shouldLog, in_shouldLog ? s_shouldLogYesValue : s_shouldLogNoValue);
+}
+
+bool Error::getShouldLog() const
+{
+   return getProperty(s_shouldLog) != s_shouldLogNoValue;
 }
 
 bool Error::isError() const
